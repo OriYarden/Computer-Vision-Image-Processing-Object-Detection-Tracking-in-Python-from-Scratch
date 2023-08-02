@@ -83,7 +83,7 @@ Now, the padding of the kernel filtered image caused the image's borders to also
 
 ![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/241e8243-6ae6-46c7-8586-27bbddeba163)
 
-After processing the image, we'll include a processing step; this post processing Python function "fattens" up (or thickens) the foreground objects along with the image's borders, thus connecting them:
+After processing the image, we'll include a post processing step; this post processing Python function "fattens" up (or thickens) the foreground objects along with the image's borders, thus connecting them:
 
     def summed_neighbors(processed_filtered_image, row, col, neighbors=10):
         '''Sum of processed filtered image at [row, col] and neighbors (i.e. [row - neighbors:row + neighbors, col - neighbors:col + neighbors])'''
