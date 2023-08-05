@@ -126,7 +126,7 @@ the additional benefit is that "random" pixels or pixels generated from noise we
 
 Since the foreground can now be discriminated by whether it connects to the borders of the image or not, we have the opportunity to remove the foreground connecting to the image's borders--leaving only the object we want to detect and track.
 
-We utilize that the foreground is connected to the image's borders, so where (i.e. numpy's where function) these row-column values equal one (representing the foreground including the object) and do not connect to the image's borders (i.e. numpy's mean function on the current row-column through the shape of the image) we populate a numpy matrix of zeros with ones (four times... in the third dimension... and the minimum sum of those four silhouettes THAT ISN'T ZERO is our final image... after we smoooth it):
+We utilize that the foreground is connected to the image's borders, so where (i.e. numpy's where function) these row-column values equal one (representing the foreground including the object) and do not connect to the image's borders (i.e. numpy's mean function on the current row-column through the shape of the image) we populate a numpy matrix of zeros with ones (four times... in the third dimension... and the minimum sum of those four silhouettes THAT ISN'T ZERO is our final image... after we smooth it):
 
     def remove_foreground(post_processed_filtered_image, image, summed_threshold=0.5):
         '''Removes foreground leaving only the object in the image (input image already has background removed); returns same binary image but now without the foreground connecting to the borders of image
