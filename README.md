@@ -126,7 +126,7 @@ the additional benefit is that "random" pixels or pixels generated from noise we
 
 Since the foreground can now be discriminated by whether it connects to the borders of the image or not, we have the opportunity to remove the foreground connecting to the image's borders--leaving only the object we want to detect and track.
 
-We utilize that the foreground is connected to the image's borders, so where (i.e. numpy's where function) these row-column values equal one (representing the foreground including the object) and do not connect to the image's borders (numpy's sum function on the current row-column through the shape of the image) we populate a numpy matrix of zeros with ones (four times... in the third dimension... and the minimum sum of those four silhouettes THAT ISN'T ZERO is our final image... after we smoooth it):
+We utilize that the foreground is connected to the image's borders, so where (i.e. numpy's where function) these row-column values equal one (representing the foreground including the object) and do not connect to the image's borders (i.e. numpy's mean function on the current row-column through the shape of the image) we populate a numpy matrix of zeros with ones (four times... in the third dimension... and the minimum sum of those four silhouettes THAT ISN'T ZERO is our final image... after we smoooth it):
 
     def remove_foreground(post_processed_filtered_image, image, summed_threshold=0.5):
         '''Removes foreground leaving only the object in the image (input image already has background removed); returns same binary image but now without the foreground connecting to the borders of image
@@ -173,24 +173,45 @@ This gives us the silhouette of the object without the background and without th
 
 How the remove_foreground function works is by making both a forward and a background pass through the post processed filtered image where (i.e. numpy's where function) it equals one (i.e. the foreground), and if the row-column arrays do not connect to the borders, we populate that pixel with a value of one; we're carrying out two forward passes and two backward passess each iteration of its loop--and the values are in the third dimension of the matrix which has a size of four (values for the two forward and two backwards passes).
 
+The "forward" pass means we use the original, unmanipulated image while the "backward" pass means the twice flipped image (i.e. numpy's flip function over the 0th axis and then again over the 1st axis). The "pass" refers to the row-column values as we iterate through the image (shown as red arrows in the figure below):
+
+![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/0f199f03-7811-4255-abc3-b6598f274590)
+
+
 The minimum sum of the four silhouettes (that doesn't equal zero... if/when it does sum to zero then that pass wasn't appropriate so we drop it/don't consider it) is our final silhouette of the image with only the object present and represented as ones in the matrix which is found with the inner get_min_summed_object function. The last component of the remove_foreground function calls the inner smooth_object_silhouette function to re-pad the object and it essentially draws a box around the object we wanted to be detected and tracked.
 
-Applications for computer vision video image processing are wide ranging, and the potential for automating object detection and object tracking that will improve efficiency should be explored.
-For example, a Ukrainian tank that needs AA (Anti Air) defenses specifically against small russian military drones would require software for processing video camera feed and first and foremost be able to discriminate between background and foreground, friendly nearby soldiers and tanks from incoming enemy drones, etc.(I know the people playing soccer in the image aren't soldiers but pretend they are):
+The final thing (which isn't really an image processing step since we already have our binary 1-channel image containing only the object's silhouette with the background and foreground removed from the image) is to draw a bounding box around the object in original image:
+
+    def outline_object_in_image(image, _object_silhouette_in_image, outline_color=None, outline_width=1):
+        '''returns the original image but now with a bounding box around the object'''
+        if outline_color is None:
+            outline_color = np.array([1.0, 1.0, 1.0]).astype(float) - image[0, 0, :]
+
+        rows, cols = np.where(_object_silhouette_in_image == 1.0)
+        fill_rows = np.arange(np.min(rows), np.max(rows), 1).astype(int)
+        fill_cols = np.arange(np.min(cols), np.max(cols), 1).astype(int)
+
+        _object_outlined_in_image = image.copy()
+        _object_outlined_in_image[fill_rows, np.min(cols) - outline_width:np.min(cols) + outline_width, :] = outline_color
+        _object_outlined_in_image[fill_rows, np.max(cols) - outline_width:np.max(cols) + outline_width, :] = outline_color
+        _object_outlined_in_image[fill_rows, int(np.round((np.max(cols) + np.min(cols))*0.5, decimals=0)) - outline_width:int(np.round((np.max(cols) + np.min(cols))*0.5, decimals=0)) + outline_width, :] = outline_color
+
+        _object_outlined_in_image[np.min(rows) - outline_width:np.min(rows) + outline_width, fill_cols, :] = outline_color
+        _object_outlined_in_image[np.max(rows) - outline_width:np.max(rows) + outline_width, fill_cols, :] = outline_color
+        _object_outlined_in_image[int(np.round((np.max(rows) + np.min(rows))*0.5, decimals=0)) - outline_width:int(np.round((np.max(rows) + np.min(rows))*0.5, decimals=0)) + outline_width, fill_cols, :] = outline_color
+        return _object_outlined_in_image
+
+    _object_outlined_in_image = outline_object_in_image(image, _object_silhouette_in_image, outline_color=np.array([1.0, 0.0, 0.0]).astype(float))
+    plt.imshow(_object_outlined_in_image)
+    plt.show()
+
+
+Applications for computer vision video image processing are wide ranging, and the potential for automating object detection and object tracking that will improve human-operated task efficiency should be explored.
 
 ![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/b0f51f29-1bf2-433b-95ec-06a2cc9d2dbb)
 
 
-Taking a break, to be continued.
+Limitations: although this computer vision video image processing guide can work on a range of different images, but for detecting and tracking objects the object must be at least not entirely in the foreground of the image.
 
-
-
-
-
-
-
-
-
-
-
+Practical Applications: this computer vision video image processing guide can work on a range of different images regardless of the object's colors, sizes, etc. and its resiliient in that it works without requiring the user to input values or adjust parameters; it also doesn't require training.
 
