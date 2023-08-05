@@ -171,7 +171,7 @@ We utilize that the foreground is connected to the image's borders, so where (i.
 
 This gives us the silhouette of the object without the background and without the foreground in the image.
 
-How the remove_foreground function works is by making both a forward and a background pass through the post processed filtered image where (i.e. numpy's where function) it equals one (i.e. the foreground), and if the row-column arrays do not connect to the borders, we populate that pixel with a value of one; we're carrying out two forward passes and two backward passess each iteration of its loop--and the values are in the third dimension of the matrix which has a size of four (values for the two forward and two backwards passes).
+How the remove_foreground function works is by making both a forward and a backward pass through the post processed filtered image where (i.e. numpy's where function) it equals one (i.e. the foreground), and if the row-column arrays do not connect to the borders, we populate that pixel with a value of one; we're carrying out two forward passes and two backward passess each iteration of its loop--and the values are in the third dimension of the matrix which has a size of four (values for the two forward and two backwards passes).
 
 The "forward" pass means we use the original, unmanipulated image while the "backward" pass means the twice flipped image (i.e. numpy's flip function over the 0th axis and then again over the 1st axis). The "pass" refers to the row-column values as we iterate through the image (shown as red arrows in the figure below):
 
