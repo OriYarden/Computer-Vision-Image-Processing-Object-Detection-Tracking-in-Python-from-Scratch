@@ -96,7 +96,7 @@ Now, the padding of the kernel filtered image caused the image's borders to also
 ![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/c8d9a526-4341-456e-b163-5a6bc172eca2)
 
 
-Our goal is to discriminate the object from the foreground in the image (now that we have the one-channel binary image with ones representing the foreground and the background is zeros), so in the post processing step we enhance or exacerbate these features to the extent that the foreground that isn't the object connects to the borders of the image:
+Our goal is to discriminate the object from the foreground in the image (now that we have the 1-channel binary image with ones representing the foreground and the background is zeros), so in the post processing step we enhance or exacerbate these features to the extent that the foreground that isn't the object connects to the borders of the image:
 
 ![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/ff31840a-f1a9-4399-8572-78151772306b)
 
