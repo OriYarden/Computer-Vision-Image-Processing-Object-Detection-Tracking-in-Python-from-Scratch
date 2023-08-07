@@ -213,7 +213,7 @@ Applications for computer vision video image processing are wide ranging, and th
 Below I included the code for all of the functions in Python:
 
     from skimage import io as io
-    image = io.imread('https://www.worldatlas.com/r/w1200/upload/7b/9f/34/snow-black-and-white-mountains-nature.jpg')
+    image = io.imread('https://www.shutterstock.com/shutterstock/videos/1093925491/thumb/5.jpg?ip=x480')
     
     import numpy as np
     def normalize_rgb_values(rgb_values, max_value=1.0):
