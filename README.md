@@ -210,6 +210,142 @@ Applications for computer vision video image processing are wide ranging, and th
 
 ![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/b0f51f29-1bf2-433b-95ec-06a2cc9d2dbb)
 
+Below I included the code for all of the functions in Python:
+
+    from skimage import io as io
+    image = io.imread('https://www.worldatlas.com/r/w1200/upload/7b/9f/34/snow-black-and-white-mountains-nature.jpg')
+    
+    import numpy as np
+    def normalize_rgb_values(rgb_values, max_value=1.0):
+        norm_rgb_values = (rgb_values - np.mean(rgb_values)) / np.var(rgb_values)**0.5
+        norm_rgb_values += abs(np.min(norm_rgb_values))
+        norm_rgb_values *= (max_value / np.max(norm_rgb_values))
+        return np.round(norm_rgb_values, decimals=0).astype(int) if max_value == 255 else np.round(norm_rgb_values, decimals=9).astype(float)
+    
+    image = normalize_rgb_values(image[:, :, :3])
+    
+    _kernel = np.diag([-5.0, 2.0, 2.0])
+    _kernel[np.where(_kernel == 0.0)] = -1.0
+    
+    def pad_image(image, _kernel):
+        '''Adds zeros to image border; padded image size = image size + (2 * kernel size)'''
+        _padded_image = np.zeros((image.shape[0] + _kernel.shape[0]*2, image.shape[1] + _kernel.shape[1]*2, 3)).astype(image.dtype)
+        _padded_image[_kernel.shape[0]:-_kernel.shape[0], _kernel.shape[1]:-_kernel.shape[1], :] = image
+        return _padded_image
+    
+    image = pad_image(image, _kernel)
+    from matplotlib import pyplot as plt
+    plt.imshow(image)
+    plt.show()
+    
+    def filter_image(image, _kernel):
+        '''Filters image by multiplying it with kernel matrix; returns image with higher foreground values and lower background values'''
+        _filtered_image = np.zeros((image.shape)).astype(float)
+        def get_rgb_sums(image, _kernel):
+            '''returns the sums for each of the RGB channels'''
+            return np.array([np.sum(image[:, :, rgb]*_kernel) for rgb in range(image.shape[2])]).astype(float)
+
+        for row in range(image.shape[0] - _kernel.shape[0]):
+            for col in range(image.shape[1] - _kernel.shape[1]):
+                _filtered_image[row, col, :] = get_rgb_sums(image[row:row + _kernel.shape[0], col:col + _kernel.shape[1], :], _kernel)
+        return _filtered_image
+    
+    filtered_image = normalize_rgb_values(filter_image(image, _kernel))
+    plt.imshow(filtered_image)
+    plt.show()
+    
+    def process_filtered_image(filtered_image, summed_threshold=1.5):
+        '''Procsses filtered image via a summed binary threshold; returns binary 1-channel image where ones are foreground and zeros are background'''
+        processed_filtered_image = np.zeros((filtered_image.shape[0], filtered_image.shape[1])).astype(float)
+        processed_filtered_image[np.where(np.sum(filtered_image, axis=2) >= summed_threshold)] = 1.0
+        if processed_filtered_image[0, 0] == 0.0:
+            processed_filtered_image -= 1.0
+            processed_filtered_image[np.where(processed_filtered_image == -1.0)] = 1.0
+        return processed_filtered_image
+    
+    processed_filtered_image = process_filtered_image(filtered_image)
+    plt.imshow(processed_filtered_image)
+    plt.show()
+    
+    def post_process_filtered_image(processed_filtered_image, neighbors=20):
+        '''Fattens object silhouette and adds borders that connect with foreground; returns same binary image but now with ones around image border'''
+        _processed_filtered_image = processed_filtered_image.copy()
+    
+        def summed_neighbors(processed_filtered_image, row, col, neighbors):
+            '''Sum of processed filtered image at [row, col] and neighbors (i.e. [row - neighbors:row + neighbors, col - neighbors:col + neighbors])'''
+            return np.sum(processed_filtered_image[max(row - neighbors, 0):min(row + neighbors, processed_filtered_image.shape[0]), max(col - neighbors, 0):min(col + neighbors, processed_filtered_image.shape[1])])
+    
+        for row, col in zip(np.where(processed_filtered_image == 0.0)[0], np.where(processed_filtered_image == 0.0)[1]):
+            _processed_filtered_image[row, col] = 1.0 if summed_neighbors(processed_filtered_image, row, col, neighbors) > 1.0 else 0.0
+        return _processed_filtered_image
+    
+    post_processed_filtered_image = post_process_filtered_image(processed_filtered_image)
+    plt.imshow(post_processed_filtered_image)
+    plt.show()
+    
+    def remove_foreground(post_processed_filtered_image, image, summed_threshold=0.5):
+        '''Removes foreground leaving only the object in the image (input image already has background removed); returns same binary image but now without the foreground connecting to the borders of image
+        the _object_silhouette_in_image matrix includes both forward and backward passes through the foreground of the image and those values are stored in the third dimension--the minimum sum of values that isn't zero is the object silhouette,
+        which we then smooth (i.e. we draw a box around it);
+        row, col, post_processed_filtered_image: forward passes;
+        _row, _col, _post_processed_filtered_image: backward passes;
+        Two if-statements discriminate whether foreground contacts the borders of image or not (NOT being the object);
+        '''
+        _object_silhouette_in_image = np.zeros((post_processed_filtered_image.shape[0], post_processed_filtered_image.shape[1], 4)).astype(float)
+        _post_processed_filtered_image = np.flip(np.flip(post_processed_filtered_image, axis=0), axis=1)
+        for row, col, _row, _col in zip(np.where(post_processed_filtered_image == 1.0)[0], np.where(post_processed_filtered_image == 1.0)[1], np.where(_post_processed_filtered_image == 1.0)[0], np.where(_post_processed_filtered_image == 1.0)[1]):
+            if np.mean(post_processed_filtered_image[row:, col]) < summed_threshold and np.mean(post_processed_filtered_image[row, col:]) != 1.0 or np.mean(post_processed_filtered_image[row, col:]) < summed_threshold and np.mean(post_processed_filtered_image[row:, col]) != 1.0:
+                _object_silhouette_in_image[row, col, 0] = 1.0
+            if np.mean(_post_processed_filtered_image[_row:, _col]) < summed_threshold and np.mean(_post_processed_filtered_image[_row, _col:]) != 1.0 or np.mean(_post_processed_filtered_image[_row, _col:]) < summed_threshold and np.mean(_post_processed_filtered_image[_row:, _col]) != 1.0:
+                _object_silhouette_in_image[_row, _col, 1] = 1.0
+            if np.mean(post_processed_filtered_image[row:, col]) < summed_threshold and np.mean(post_processed_filtered_image[row, col:]) < summed_threshold:
+                _object_silhouette_in_image[row, col, 2] = 1.0
+            if np.mean(_post_processed_filtered_image[_row:, _col]) < summed_threshold and np.mean(_post_processed_filtered_image[_row, _col:]) != 1.0 or np.mean(_post_processed_filtered_image[_row, _col:]) < summed_threshold and np.mean(_post_processed_filtered_image[_row:, _col]) != 1.0:
+                _object_silhouette_in_image[_row, _col, 3] = 1.0
+    
+        def get_min_summed_object(_object_silhouette_in_image):
+            '''returns the minimum summed object silhouette that isn't zero'''
+            _min_sum_nums = [_object for _object in range(_object_silhouette_in_image.shape[2]) if np.sum(_object_silhouette_in_image[:, :, _object]) != 0.0]
+            _object_sums_list = [_object_silhouette_in_image[:, :, 0], np.flip(np.flip(_object_silhouette_in_image[:, :, 1], axis=0), axis=1), _object_silhouette_in_image[:, :, 2], np.flip(np.flip(_object_silhouette_in_image[:, :, 3], axis=0), axis=1)]
+            _min_sum = [np.sum(_object_silhouette_in_image[:, :, _object]) for _object in _min_sum_nums]
+            return _object_sums_list[np.where(_min_sum == np.min(_min_sum))[0][0]]
+    
+        def smooth_object_silhouette(_object_silhouette_in_image):
+            '''returns image with a smoothed silhouette of the object; basically, it draws a box around the silhouette of the object'''
+            _smoothed_object_silhouette_in_image = _object_silhouette_in_image.copy()
+            rows, cols = np.where(_object_silhouette_in_image == 1.0)
+            _smoothed_object_silhouette_in_image[np.min(rows):np.max(rows), np.min(cols):np.max(cols)] = 1.0
+            return _smoothed_object_silhouette_in_image
+    
+        return smooth_object_silhouette(get_min_summed_object(_object_silhouette_in_image))
+    
+    _object_silhouette_in_image = remove_foreground(post_processed_filtered_image, image)
+    plt.imshow(_object_silhouette_in_image)
+    plt.show()
+    
+    def outline_object_in_image(image, _object_silhouette_in_image, outline_color=None, outline_width=1):
+        '''returns the original image but now with a bounding box around the object'''
+        if outline_color is None:
+            outline_color = np.array([1.0, 1.0, 1.0]).astype(float) - image[0, 0, :]
+    
+        rows, cols = np.where(_object_silhouette_in_image == 1.0)
+        fill_rows = np.arange(np.min(rows), np.max(rows), 1).astype(int)
+        fill_cols = np.arange(np.min(cols), np.max(cols), 1).astype(int)
+    
+        _object_outlined_in_image = image.copy()
+        _object_outlined_in_image[fill_rows, np.min(cols) - outline_width:np.min(cols) + outline_width, :] = outline_color
+        _object_outlined_in_image[fill_rows, np.max(cols) - outline_width:np.max(cols) + outline_width, :] = outline_color
+        _object_outlined_in_image[fill_rows, int(np.round((np.max(cols) + np.min(cols))*0.5, decimals=0)) - outline_width:int(np.round((np.max(cols) + np.min(cols))*0.5, decimals=0)) + outline_width, :] = outline_color
+    
+        _object_outlined_in_image[np.min(rows) - outline_width:np.min(rows) + outline_width, fill_cols, :] = outline_color
+        _object_outlined_in_image[np.max(rows) - outline_width:np.max(rows) + outline_width, fill_cols, :] = outline_color
+        _object_outlined_in_image[int(np.round((np.max(rows) + np.min(rows))*0.5, decimals=0)) - outline_width:int(np.round((np.max(rows) + np.min(rows))*0.5, decimals=0)) + outline_width, fill_cols, :] = outline_color
+        return _object_outlined_in_image
+    
+    _object_outlined_in_image = outline_object_in_image(image, _object_silhouette_in_image, outline_color=np.array([1.0, 0.0, 0.0]).astype(float))
+    plt.imshow(_object_outlined_in_image)
+    plt.show()
+
 
 Limitations: although this computer vision video image processing guide can work on a range of different images, but for detecting and tracking objects the object must be at least not entirely in the foreground of the image.
 
