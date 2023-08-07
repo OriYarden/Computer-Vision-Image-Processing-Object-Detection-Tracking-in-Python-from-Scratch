@@ -349,5 +349,5 @@ Below I included the code for all of the functions in Python:
 
 Limitations: although this computer vision video image processing guide can work on a range of different images, but for detecting and tracking objects the object must be at least not entirely in the foreground of the image.
 
-Practical Applications: this computer vision video image processing guide can work on a range of different images regardless of the object's colors, sizes, etc. and its resilient in that it works without requiring the user to input values or adjust parameters; it also doesn't require training.
+Practical Applications and Advantages: this computer vision video image processing guide can work on a range of different images regardless of the object's color(s), sizes, etc. and its resilient in that it works without requiring the user to input values or adjust parameters; it also doesn't require training. It is optimal for live, hot encoding applications of object detection and tracking.
 
