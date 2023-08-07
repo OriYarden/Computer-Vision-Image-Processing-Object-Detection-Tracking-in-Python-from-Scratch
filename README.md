@@ -213,5 +213,5 @@ Applications for computer vision video image processing are wide ranging, and th
 
 Limitations: although this computer vision video image processing guide can work on a range of different images, but for detecting and tracking objects the object must be at least not entirely in the foreground of the image.
 
-Practical Applications: this computer vision video image processing guide can work on a range of different images regardless of the object's colors, sizes, etc. and its resiliient in that it works without requiring the user to input values or adjust parameters; it also doesn't require training.
+Practical Applications: this computer vision video image processing guide can work on a range of different images regardless of the object's colors, sizes, etc. and its resilient in that it works without requiring the user to input values or adjust parameters; it also doesn't require training.
 
