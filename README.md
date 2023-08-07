@@ -93,12 +93,12 @@ Which gives us:
 
 Now, the padding of the kernel filtered image caused the image's borders to also have ones--this is an advantageous side effect; we'll go over how to use this to our advantage in the following examples:
 
-![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/c8d9a526-4341-456e-b163-5a6bc172eca2)
+![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/30071133-5a76-4bef-9bee-ec752c0181be)
 
 
 Our goal is to discriminate the object from the foreground in the image (now that we have the 1-channel binary image with ones representing the foreground and the background is zeros), so in the post processing step we enhance or exacerbate these features to the extent that the foreground that isn't the object connects to the borders of the image:
 
-![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/ff31840a-f1a9-4399-8572-78151772306b)
+![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/40887056-6d73-40b9-b387-d40d9ba7ca31)
 
 
 This post processing Python function "fattens" up (or thickens) the foreground objects along with the image's borders, thus connecting them (but not connecting to the object we want to detect and track):
