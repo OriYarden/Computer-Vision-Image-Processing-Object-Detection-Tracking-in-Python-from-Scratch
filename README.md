@@ -61,7 +61,7 @@ First we get the image (obviously), which is a link from an image I found on Goo
 
 We have to normalize the values if they aren't already, then we pad the image which involves adding zeros to the image's border--increasing its size by two times the size of the kernel.
 
-Then we filter the image by iterating rows and columns and getting the RGB (third dimension) values of the image matrix multiplying it by the kernel and summing the result.
+Then we filter the image by iterating rows and columns and getting the RGB (third dimension) values of the image matrix multiplying it by the kernel and summing the result; this is what the filter_image function does, it's just vectorized.
 
 To actually extract the foreground so that we have a binary 1-channel image matrix to work with where ones represent the foreground and zeros represent the background, we'll have to process those kernel filtered values:
 
