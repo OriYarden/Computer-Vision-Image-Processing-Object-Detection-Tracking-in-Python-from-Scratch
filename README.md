@@ -50,16 +50,8 @@ However, the example above is "easy" because the object (i.e. the drone) is the 
 
     def filter_image(image, _kernel):
         '''Filters image by multiplying it with kernel matrix; returns image with higher foreground values and lower background values'''
-        _filtered_image = np.zeros((image.shape)).astype(float)
-        def get_rgb_sums(image, _kernel):
-            '''returns the sums for each of the RGB channels'''
-            return np.array([np.sum(image[:, :, rgb]*_kernel) for rgb in range(image.shape[2])]).astype(float)
-
-        for row in range(image.shape[0] - _kernel.shape[0]):
-            for col in range(image.shape[1] - _kernel.shape[1]):
-                _filtered_image[row, col, :] = get_rgb_sums(image[row:row + _kernel.shape[0], col:col + _kernel.shape[1], :], _kernel)
-        return _filtered_image
-
+        return np.reshape(np.sum(np.reshape(image, [image.shape[0]*image.shape[1]*image.shape[2], 1])*np.reshape(_kernel, [_kernel.shape[0]*_kernel.shape[1]]), axis=1), image.shape)
+    
     filtered_image = normalize_rgb_values(filter_image(image, _kernel))
     plt.imshow(filtered_image)
     plt.show()
@@ -240,16 +232,8 @@ Below I included the code for all of the functions in Python:
     
     def filter_image(image, _kernel):
         '''Filters image by multiplying it with kernel matrix; returns image with higher foreground values and lower background values'''
-        _filtered_image = np.zeros((image.shape)).astype(float)
-        def get_rgb_sums(image, _kernel):
-            '''returns the sums for each of the RGB channels'''
-            return np.array([np.sum(image[:, :, rgb]*_kernel) for rgb in range(image.shape[2])]).astype(float)
-
-        for row in range(image.shape[0] - _kernel.shape[0]):
-            for col in range(image.shape[1] - _kernel.shape[1]):
-                _filtered_image[row, col, :] = get_rgb_sums(image[row:row + _kernel.shape[0], col:col + _kernel.shape[1], :], _kernel)
-        return _filtered_image
-    
+        return np.reshape(np.sum(np.reshape(image, [image.shape[0]*image.shape[1]*image.shape[2], 1])*np.reshape(_kernel, [_kernel.shape[0]*_kernel.shape[1]]), axis=1), image.shape)
+        
     filtered_image = normalize_rgb_values(filter_image(image, _kernel))
     plt.imshow(filtered_image)
     plt.show()
