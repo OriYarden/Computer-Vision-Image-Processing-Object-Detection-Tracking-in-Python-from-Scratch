@@ -67,13 +67,13 @@ To actually extract the foreground so that we have a binary 1-channel image matr
 
     def process_filtered_image(filtered_image, summed_threshold=1.5):
         '''Procsses filtered image via a summed binary threshold; returns binary 1-channel image where ones are foreground and zeros are background'''
-        processed_filtered_image = np.zeros((filtered_image.shape[0], filtered_image.shape[1])).astype(float)
-        processed_filtered_image[np.where(np.sum(filtered_image, axis=2) >= summed_threshold)] = 1.0
-        if processed_filtered_image[0, 0] == 0.0:
-            processed_filtered_image -= 1.0
-            processed_filtered_image[np.where(processed_filtered_image == -1.0)] = 1.0
-        return processed_filtered_image
-
+        _processed_filtered_image = np.zeros((filtered_image.shape[0], filtered_image.shape[1])).astype(float)
+        _processed_filtered_image[np.where(np.sum(filtered_image, axis=2) >= summed_threshold)] = 1.0
+        if _processed_filtered_image[0, 0] == 0.0:
+            _processed_filtered_image -= 1.0
+            _processed_filtered_image[np.where(_processed_filtered_image == -1.0)] = 1.0
+        return _processed_filtered_image
+    
     processed_filtered_image = process_filtered_image(filtered_image)
     plt.imshow(processed_filtered_image)
     plt.show()
@@ -90,45 +90,45 @@ Now, the padding of the kernel filtered image caused the image's borders to also
 
 Our goal is to discriminate the object from the foreground in the image (now that we have the 1-channel binary image with ones representing the foreground and the background is zeros), so in the post processing step we enhance or exacerbate these features to the extent that the foreground that isn't the object connects to the borders of the image:
 
-![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/40887056-6d73-40b9-b387-d40d9ba7ca31)
+![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/9d48b935-fc0f-4ebd-98a9-f6abdf578821)
 
 
 This post processing Python function "fattens" up (or thickens) the foreground objects along with the image's borders, thus connecting them (but not connecting to the object we want to detect and track):
 
     def post_process_filtered_image(processed_filtered_image, neighbors=20):
-        '''Fattens object silhouette and adds borders that connect with foreground; returns same binary image but now with ones around image border'''
-        _processed_filtered_image = processed_filtered_image.copy()
-
+        '''Fattens object silhouette and adds borders that connect with foreground; returns same binary image but now with ones around image border and foreground features exacerbated'''
+        _post_processed_filtered_image = processed_filtered_image.copy()
+    
         def summed_neighbors(processed_filtered_image, row, col, neighbors):
             '''Sum of processed filtered image at [row, col] and neighbors (i.e. [row - neighbors:row + neighbors, col - neighbors:col + neighbors])'''
             return np.sum(processed_filtered_image[max(row - neighbors, 0):min(row + neighbors, processed_filtered_image.shape[0]), max(col - neighbors, 0):min(col + neighbors, processed_filtered_image.shape[1])])
-
-        for row, col in zip(np.where(processed_filtered_image == 0.0)[0], np.where(processed_filtered_image == 0.0)[1]):
-            _processed_filtered_image[row, col] = 1.0 if summed_neighbors(processed_filtered_image, row, col, neighbors) > 1.0 else 0.0
-        return _processed_filtered_image
-
+    
+        for row in range(processed_filtered_image.shape[0]):
+            for col in range(processed_filtered_image.shape[1]):
+                _post_processed_filtered_image[row, col] = 1.0 if summed_neighbors(processed_filtered_image, row, col, neighbors) > 1.0 else 0.0
+        return _post_processed_filtered_image
+    
     post_processed_filtered_image = post_process_filtered_image(processed_filtered_image)
     plt.imshow(post_processed_filtered_image)
     plt.show()
 
 
-The post_process_filtered_image function iterates over the row-column values of the binary 1-channel image that are equal to zero, and if it has neighboring ones we make it equal to one as well.
+The post_process_filtered_image function iterates over the row-column values of the binary 1-channel image, and if it has neighboring ones we make it equal to one as well (else we make it zero).
 So the returned image will be the same as the input binary image except we'll exacerbate the foreground pixels as long as they have have neighboring pixels determined via the inner summed_neighbors function;
-the additional benefit is that "random" pixels or pixels generated from noise we'll be smoothed out--thus, this function both interpolates where pixel values of ones should be, but also avoids padding ones where they shouldn't be.
+the additional benefit is that "random" pixels or pixels generated from noise we'll be smoothed out--thus, this function both interpolates where pixel values of ones should be, but also removes ones where they shouldn't be.
 
 Since the foreground can now be discriminated by whether it connects to the borders of the image or not, we have the opportunity to remove the foreground connecting to the image's borders--leaving only the object we want to detect and track.
 
-We utilize that the foreground is connected to the image's borders, so where (i.e. numpy's where function) these row-column values equal one (representing the foreground including the object) and do not connect to the image's borders (i.e. numpy's mean function on the current row-column through the shape of the image) we populate a numpy matrix of zeros with ones (four times... in the third dimension... and the minimum sum of those four silhouettes THAT ISN'T ZERO is our final image... after we smooth it):
+We utilize that the foreground is connected to the image's borders, so where (i.e. numpy's where function) these row-column values equal one (representing the foreground including the object) and do not connect to the image's borders (i.e. numpy's mean function on the current row-column through the shape of the image) we populate a numpy matrix of zeros with ones (three times... in the third dimension... and the minimum sum of those three silhouettes THAT ISN'T ZERO is our final image... after we smooth it):
 
     def remove_foreground(post_processed_filtered_image, image, summed_threshold=0.5):
-        '''Removes foreground leaving only the object in the image (input image already has background removed); returns same binary image but now without the foreground connecting to the borders of image
+        '''Removes foreground leaving only the object in the image (input image must already has background removed); returns same binary image but now without the foreground connecting to the borders of image
         the _object_silhouette_in_image matrix includes both forward and backward passes through the foreground of the image and those values are stored in the third dimension--the minimum sum of values that isn't zero is the object silhouette,
         which we then smooth (i.e. we draw a box around it);
         row, col, post_processed_filtered_image: forward passes;
         _row, _col, _post_processed_filtered_image: backward passes;
-        Two if-statements discriminate whether foreground contacts the borders of image or not (NOT being the object);
         '''
-        _object_silhouette_in_image = np.zeros((post_processed_filtered_image.shape[0], post_processed_filtered_image.shape[1], 4)).astype(float)
+        _object_silhouette_in_image = np.zeros((post_processed_filtered_image.shape[0], post_processed_filtered_image.shape[1], 3)).astype(float)
         _post_processed_filtered_image = np.flip(np.flip(post_processed_filtered_image, axis=0), axis=1)
         for row, col, _row, _col in zip(np.where(post_processed_filtered_image == 1.0)[0], np.where(post_processed_filtered_image == 1.0)[1], np.where(_post_processed_filtered_image == 1.0)[0], np.where(_post_processed_filtered_image == 1.0)[1]):
             if np.mean(post_processed_filtered_image[row:, col]) < summed_threshold and np.mean(post_processed_filtered_image[row, col:]) != 1.0 or np.mean(post_processed_filtered_image[row, col:]) < summed_threshold and np.mean(post_processed_filtered_image[row:, col]) != 1.0:
@@ -137,25 +137,23 @@ We utilize that the foreground is connected to the image's borders, so where (i.
                 _object_silhouette_in_image[_row, _col, 1] = 1.0
             if np.mean(post_processed_filtered_image[row:, col]) < summed_threshold and np.mean(post_processed_filtered_image[row, col:]) < summed_threshold:
                 _object_silhouette_in_image[row, col, 2] = 1.0
-            if np.mean(_post_processed_filtered_image[_row:, _col]) < summed_threshold and np.mean(_post_processed_filtered_image[_row, _col:]) != 1.0 or np.mean(_post_processed_filtered_image[_row, _col:]) < summed_threshold and np.mean(_post_processed_filtered_image[_row:, _col]) != 1.0:
-                _object_silhouette_in_image[_row, _col, 3] = 1.0
-
+    
         def get_min_summed_object(_object_silhouette_in_image):
             '''returns the minimum summed object silhouette that isn't zero'''
             _min_sum_nums = [_object for _object in range(_object_silhouette_in_image.shape[2]) if np.sum(_object_silhouette_in_image[:, :, _object]) != 0.0]
-            _object_sums_list = [_object_silhouette_in_image[:, :, 0], np.flip(np.flip(_object_silhouette_in_image[:, :, 1], axis=0), axis=1), _object_silhouette_in_image[:, :, 2], np.flip(np.flip(_object_silhouette_in_image[:, :, 3], axis=0), axis=1)]
+            _object_sums_list = [_object_silhouette_in_image[:, :, 0], np.flip(np.flip(_object_silhouette_in_image[:, :, 1], axis=0), axis=1), _object_silhouette_in_image[:, :, 2]]
             _min_sum = [np.sum(_object_silhouette_in_image[:, :, _object]) for _object in _min_sum_nums]
             return _object_sums_list[np.where(_min_sum == np.min(_min_sum))[0][0]]
-
+    
         def smooth_object_silhouette(_object_silhouette_in_image):
             '''returns image with a smoothed silhouette of the object; basically, it draws a box around the silhouette of the object'''
             _smoothed_object_silhouette_in_image = _object_silhouette_in_image.copy()
             rows, cols = np.where(_object_silhouette_in_image == 1.0)
             _smoothed_object_silhouette_in_image[np.min(rows):np.max(rows), np.min(cols):np.max(cols)] = 1.0
             return _smoothed_object_silhouette_in_image
-
+    
         return smooth_object_silhouette(get_min_summed_object(_object_silhouette_in_image))
-
+    
     _object_silhouette_in_image = remove_foreground(post_processed_filtered_image, image)
     plt.imshow(_object_silhouette_in_image)
     plt.show()
@@ -163,14 +161,14 @@ We utilize that the foreground is connected to the image's borders, so where (i.
 
 This gives us the silhouette of the object without the background and without the foreground in the image.
 
-How the remove_foreground function works is by making both a forward and a backward pass through the post processed filtered image where (i.e. numpy's where function) it equals one (i.e. the foreground), and if the row-column arrays do not connect to the borders, we populate that pixel with a value of one; we're carrying out two forward passes and two backward passess each iteration of its loop--and the values are in the third dimension of the matrix which has a size of four (values for the two forward and two backwards passes).
+How the remove_foreground function works is by making both a forward and a backward pass through the post processed filtered image where (i.e. numpy's where function) it equals one (i.e. the foreground), and if the row-column arrays do not connect to the borders, we populate that pixel with a value of one; we're carrying out two forward passes and one backward pass (a second backward pass would be redundant) each iteration of its loop--and the values are in the third dimension of the matrix which has a size of three (values for the two forward and one backward pass).
 
 The "forward" pass means we use the original, unmanipulated image while the "backward" pass means the twice flipped image (i.e. numpy's flip function over the 0th axis and then again over the 1st axis). The "pass" refers to the row-column values as we iterate through the image (shown as red arrows in the figure below):
 
-![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/0f199f03-7811-4255-abc3-b6598f274590)
+![Picture1](https://github.com/OriYarden/Computer-Vision-Image-Processing-Object-Detection-Tracking-in-Python-from-Scratch/assets/137197657/694ae8b4-b0a4-4f0c-8757-298ca4ec8700)
 
 
-The minimum sum of the four silhouettes (that doesn't equal zero... if/when it does sum to zero then that pass wasn't appropriate so we drop it/don't consider it) is our final silhouette of the image with only the object present and represented as ones in the matrix which is found with the inner get_min_summed_object function. The last component of the remove_foreground function calls the inner smooth_object_silhouette function to re-pad the object and it essentially draws a box around the object we wanted to be detected and tracked.
+The minimum sum of the three silhouettes (that doesn't equal zero... if/when it does sum to zero then that pass wasn't appropriate so we drop it/don't consider it) is our final silhouette of the image with only the object present and represented as ones in the matrix which is found with the inner get_min_summed_object function. The last component of the remove_foreground function calls the inner smooth_object_silhouette function to re-pad the object and it essentially draws a box around the object we wanted to be detected and tracked.
 
 The final thing (which isn't really an image processing step since we already have our binary 1-channel image containing only the object's silhouette with the background and foreground removed from the image) is to draw a bounding box around the object in original image:
 
@@ -233,49 +231,49 @@ Below I included the code for all of the functions in Python:
     def filter_image(image, _kernel):
         '''Filters image by multiplying it with kernel matrix; returns image with higher foreground values and lower background values'''
         return np.reshape(np.sum(np.reshape(image, [image.shape[0]*image.shape[1]*image.shape[2], 1])*np.reshape(_kernel, [_kernel.shape[0]*_kernel.shape[1]]), axis=1), image.shape)
-        
+    
     filtered_image = normalize_rgb_values(filter_image(image, _kernel))
     plt.imshow(filtered_image)
     plt.show()
     
     def process_filtered_image(filtered_image, summed_threshold=1.5):
         '''Procsses filtered image via a summed binary threshold; returns binary 1-channel image where ones are foreground and zeros are background'''
-        processed_filtered_image = np.zeros((filtered_image.shape[0], filtered_image.shape[1])).astype(float)
-        processed_filtered_image[np.where(np.sum(filtered_image, axis=2) >= summed_threshold)] = 1.0
-        if processed_filtered_image[0, 0] == 0.0:
-            processed_filtered_image -= 1.0
-            processed_filtered_image[np.where(processed_filtered_image == -1.0)] = 1.0
-        return processed_filtered_image
+        _processed_filtered_image = np.zeros((filtered_image.shape[0], filtered_image.shape[1])).astype(float)
+        _processed_filtered_image[np.where(np.sum(filtered_image, axis=2) >= summed_threshold)] = 1.0
+        if _processed_filtered_image[0, 0] == 0.0:
+            _processed_filtered_image -= 1.0
+            _processed_filtered_image[np.where(_processed_filtered_image == -1.0)] = 1.0
+        return _processed_filtered_image
     
     processed_filtered_image = process_filtered_image(filtered_image)
     plt.imshow(processed_filtered_image)
     plt.show()
     
     def post_process_filtered_image(processed_filtered_image, neighbors=20):
-        '''Fattens object silhouette and adds borders that connect with foreground; returns same binary image but now with ones around image border'''
-        _processed_filtered_image = processed_filtered_image.copy()
+        '''Fattens object silhouette and adds borders that connect with foreground; returns same binary image but now with ones around image border and foreground features exacerbated'''
+        _post_processed_filtered_image = processed_filtered_image.copy()
     
         def summed_neighbors(processed_filtered_image, row, col, neighbors):
             '''Sum of processed filtered image at [row, col] and neighbors (i.e. [row - neighbors:row + neighbors, col - neighbors:col + neighbors])'''
             return np.sum(processed_filtered_image[max(row - neighbors, 0):min(row + neighbors, processed_filtered_image.shape[0]), max(col - neighbors, 0):min(col + neighbors, processed_filtered_image.shape[1])])
     
-        for row, col in zip(np.where(processed_filtered_image == 0.0)[0], np.where(processed_filtered_image == 0.0)[1]):
-            _processed_filtered_image[row, col] = 1.0 if summed_neighbors(processed_filtered_image, row, col, neighbors) > 1.0 else 0.0
-        return _processed_filtered_image
+        for row in range(processed_filtered_image.shape[0]):
+            for col in range(processed_filtered_image.shape[1]):
+                _post_processed_filtered_image[row, col] = 1.0 if summed_neighbors(processed_filtered_image, row, col, neighbors) > 1.0 else 0.0
+        return _post_processed_filtered_image
     
     post_processed_filtered_image = post_process_filtered_image(processed_filtered_image)
     plt.imshow(post_processed_filtered_image)
     plt.show()
     
     def remove_foreground(post_processed_filtered_image, image, summed_threshold=0.5):
-        '''Removes foreground leaving only the object in the image (input image already has background removed); returns same binary image but now without the foreground connecting to the borders of image
+        '''Removes foreground leaving only the object in the image (input image must already has background removed); returns same binary image but now without the foreground connecting to the borders of image
         the _object_silhouette_in_image matrix includes both forward and backward passes through the foreground of the image and those values are stored in the third dimension--the minimum sum of values that isn't zero is the object silhouette,
         which we then smooth (i.e. we draw a box around it);
         row, col, post_processed_filtered_image: forward passes;
         _row, _col, _post_processed_filtered_image: backward passes;
-        Two if-statements discriminate whether foreground contacts the borders of image or not (NOT being the object);
         '''
-        _object_silhouette_in_image = np.zeros((post_processed_filtered_image.shape[0], post_processed_filtered_image.shape[1], 4)).astype(float)
+        _object_silhouette_in_image = np.zeros((post_processed_filtered_image.shape[0], post_processed_filtered_image.shape[1], 3)).astype(float)
         _post_processed_filtered_image = np.flip(np.flip(post_processed_filtered_image, axis=0), axis=1)
         for row, col, _row, _col in zip(np.where(post_processed_filtered_image == 1.0)[0], np.where(post_processed_filtered_image == 1.0)[1], np.where(_post_processed_filtered_image == 1.0)[0], np.where(_post_processed_filtered_image == 1.0)[1]):
             if np.mean(post_processed_filtered_image[row:, col]) < summed_threshold and np.mean(post_processed_filtered_image[row, col:]) != 1.0 or np.mean(post_processed_filtered_image[row, col:]) < summed_threshold and np.mean(post_processed_filtered_image[row:, col]) != 1.0:
@@ -284,13 +282,11 @@ Below I included the code for all of the functions in Python:
                 _object_silhouette_in_image[_row, _col, 1] = 1.0
             if np.mean(post_processed_filtered_image[row:, col]) < summed_threshold and np.mean(post_processed_filtered_image[row, col:]) < summed_threshold:
                 _object_silhouette_in_image[row, col, 2] = 1.0
-            if np.mean(_post_processed_filtered_image[_row:, _col]) < summed_threshold and np.mean(_post_processed_filtered_image[_row, _col:]) != 1.0 or np.mean(_post_processed_filtered_image[_row, _col:]) < summed_threshold and np.mean(_post_processed_filtered_image[_row:, _col]) != 1.0:
-                _object_silhouette_in_image[_row, _col, 3] = 1.0
     
         def get_min_summed_object(_object_silhouette_in_image):
             '''returns the minimum summed object silhouette that isn't zero'''
             _min_sum_nums = [_object for _object in range(_object_silhouette_in_image.shape[2]) if np.sum(_object_silhouette_in_image[:, :, _object]) != 0.0]
-            _object_sums_list = [_object_silhouette_in_image[:, :, 0], np.flip(np.flip(_object_silhouette_in_image[:, :, 1], axis=0), axis=1), _object_silhouette_in_image[:, :, 2], np.flip(np.flip(_object_silhouette_in_image[:, :, 3], axis=0), axis=1)]
+            _object_sums_list = [_object_silhouette_in_image[:, :, 0], np.flip(np.flip(_object_silhouette_in_image[:, :, 1], axis=0), axis=1), _object_silhouette_in_image[:, :, 2]]
             _min_sum = [np.sum(_object_silhouette_in_image[:, :, _object]) for _object in _min_sum_nums]
             return _object_sums_list[np.where(_min_sum == np.min(_min_sum))[0][0]]
     
@@ -329,7 +325,7 @@ Below I included the code for all of the functions in Python:
     _object_outlined_in_image = outline_object_in_image(image, _object_silhouette_in_image, outline_color=np.array([1.0, 0.0, 0.0]).astype(float))
     plt.imshow(_object_outlined_in_image)
     plt.show()
-
+    
 
 Limitations: although this computer vision video image processing guide can work on a range of different images, but for detecting and tracking objects the object must be at least not entirely in the foreground of the image.
 
